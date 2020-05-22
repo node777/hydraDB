@@ -1,0 +1,25 @@
+{
+  "name": "hydra",
+  "version": "1.0.0",
+  "description": "Enterprise Blockchain",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "hydra",
+    "blockchain",
+    "database",
+    "server",
+    "serverless",
+    "enterprise"
+  ],
+  "author": "Sabin Hertz",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "express-xml-bodyparser": "^0.3.0",
+    "nginx": "0.0.0"
+  }
+}
