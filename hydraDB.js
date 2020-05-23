@@ -6,23 +6,36 @@ const bodyParser = require("body-parser");
 var hydra={
   chains:{
     hydra:[
-    
       {
         hash:"#genBlock",
+        block:(timestamp, key, func, msg, sig)=>{
+          var c=hydra.chains["hydra"];
+          //todo:SCRUB INPUT
+          let prevHash=c[c.length-1].h;
+          let ts="timestamp";
+          var b={
+            p: prevHash,
+            k: key,
+            t: timestamp,
+            f: func,
+            m: msg,
+            s: sig
+          }
+          blockHash="todo: hash";
+          b.h=blockHash;
+          return b;
+        },
         chaincode:{
+          //todo double check sig
           init:function(data){
               return "initiated"
           },
           create:function(data){
             console.log(data);
             return `created with ${String(data)}`
-        },
+          }
+        }
       }
-      },
-      {
-        hash:"#block1"
-      }
-    
     ]
   }
 }
@@ -46,13 +59,34 @@ app.get('/chains/:chain/query/:query', (req, res) => {
  
 app.post('/chains/:chain/invoke/:invoke', (req, res) => {
   var d=Object.keys(req.body)[0];
+  let c=hydra.chains[req.params.chain];
   try{
     console.log(d);
-    let r = hydra.chains[req.params.chain][0].chaincode[req.params.invoke](d);
-    return res.send(r);
+    let r = c[0].chaincode[req.params.invoke](d);
+    if(r){
+      //todo scrub d
+      var data =JSON.parse(d);
+      let key = data.k;
+      let ts = data.t;
+      let msg = data.m;
+      let inv = data.i;
+      let sig = data.s;
+      //block is valid
+      try{
+        let b= c[0].block(ts, key, inv, msg, sig);
+        c.push(b);
+        return res.send(`chaincode invoked: returned: ${r}`);
+      }
+      catch(e){
+        return res.send(`chaincode could not be invoked: ERROR: ${e}`);
+      }
+    }
+    else{
+      return res.send(`ERROR: chain could not be found`);
+    }
   }
-  catch{
-    return res.send(`could not execute the function ${req.params.invoke} on chain ${req.params.chain} with params ${d}`);
+  catch(err){
+    return res.send(`could not execute the function ${req.params.invoke} on chain ${req.params.chain} with params ${d} - got error ${err}`);
   }
 });
  //allow creating of new chains
