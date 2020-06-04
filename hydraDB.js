@@ -1,44 +1,15 @@
-var fs = require('fs');
+const fs = require('fs');
 const express = require('express');
-const app = express();
-
 const bodyParser = require("body-parser");
-var hydra={
-  chains:{
-    hydra:[
-      {
-        hash:"#genBlock",
-        block:(timestamp, key, func, msg, sig)=>{
-          var c=hydra.chains["hydra"];
-          //todo:SCRUB INPUT
-          let prevHash=c[c.length-1].h;
-          let ts="timestamp";
-          var b={
-            p: prevHash,
-            k: key,
-            t: timestamp,
-            f: func,
-            m: msg,
-            s: sig
-          }
-          blockHash="todo: hash";
-          b.h=blockHash;
-          return b;
-        },
-        chaincode:{
-          //todo double check sig
-          init:function(data){
-              return "initiated"
-          },
-          create:function(data){
-            console.log(data);
-            return `created with ${String(data)}`
-          }
-        }
-      }
-    ]
-  }
-}
+
+const hydra=require("./hydra-chain.js");
+const defaultGenisis=require("./default.genisis.block.js");
+const multiGenisis=require("./multi-chain.genisis.block.js");
+
+hydra.create("default", defaultGenisis);
+hydra.create("multi", multiGenisis);
+
+const app = express();
 app.use(bodyParser.urlencoded({
   extended: true
 }));
@@ -48,58 +19,42 @@ app.use(function(req, res, next) {
   next();
 });
 
-app.get('/chains/:chain', (req, res) => {
-  return res.send(hydra.chains[req.params.chain]);
+//chain info
+app.get('/chains/:chain?/:block?', (req, res) => {
+  if(req.params.chain){
+    var c = hydra.chains[req.params.chain]
+    if(req.params.block){
+      return res.send(c[req.params.block]);
+    }else{
+      return res.send(c);
+    }
+  }else{
+    return res.send(hydra.chains);
+  }
+  
 });
-
-app.get('/chains/:chain/query/:query', (req, res) => {
-  var r = `query ${req.params.query} been invoked on chain ${req.params.chain}`
+//query
+app.get('/chains/:chain/query/:query/:args?', (req, res) => {
+  var r = hydra.query(req.params.chain, req.params.query, req.params.args)||"Query could not be found"
   return res.send(r);
 });
- 
-app.post('/chains/:chain/invoke/:invoke', (req, res) => {
-  var d=Object.keys(req.body)[0];
-  let c=hydra.chains[req.params.chain];
-  try{
-    console.log(d);
-    let r = c[0].chaincode[req.params.invoke](d);
-    if(r){
-      //todo scrub d
-      var data =JSON.parse(d);
-      let key = data.k;
-      let ts = data.t;
-      let msg = data.m;
-      let inv = data.i;
-      let sig = data.s;
-      //block is valid
-      try{
-        let b= c[0].block(ts, key, inv, msg, sig);
-        c.push(b);
-        return res.send(`chaincode invoked: returned: ${r}`);
-      }
-      catch(e){
-        return res.send(`chaincode could not be invoked: ERROR: ${e}`);
-      }
-    }
-    else{
-      return res.send(`ERROR: chain could not be found`);
-    }
-  }
-  catch(err){
-    return res.send(`could not execute the function ${req.params.invoke} on chain ${req.params.chain} with params ${d} - got error ${err}`);
-  }
+ //invoke
+app.post('/chains/:chain/invoke/:invoke/:args?', (req, res) => {
+  var r = hydra.invoke(req.params.chain, req.params.invoke, req.body);
+  return res.send(r);
 });
- //allow creating of new chains
- /*
+//todo scrub input
+//create chain
 app.put('/chains/:chain', (req, res) => {
-  return res.send('Received a PUT HTTP method');
+  var d=JSON.parse(req.body);
+  return res.send(`Could not create ${req.params.chain}`);
 });
- 
-app.delete('/', (req, res) => {
-  return res.send('Received a DELETE HTTP method');
+//removal of chains by costodian
+app.delete('/chains/:chain', (req, res) => {
+  return res.send(`Could not delete ${req.params.chain}`);
 });
-*/
-process.env.PORT=5000;
+
+process.env.PORT=5001;
  
 app.listen(process.env.PORT, () =>
   console.log(`Hydra serving on port ${process.env.PORT}!`),
